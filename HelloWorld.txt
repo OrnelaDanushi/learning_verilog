@@ -1,0 +1,31 @@
+﻿/* Programma che visualizza Hello World!
+Codice utile soltanto per la simulazione: Non e' possibile di fatti sintetizzare con queste istruzioni un circuito che abbia questo comportamento.*/
+module main;
+    initial
+            begin
+                    $display("Hello World!");
+                    $finish ;
+            end
+endmodule
+
+
+//Sintesi
+#! /usr/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_0x8371988 .scope module, "main" "main" 2 4;
+ .timescale 0 0;
+        .scope S_0x8371988;
+T_0 ;
+        %vpi_call 2 7 "$display", "Hello World!";
+        %vpi_call 2 8 "$finish";
+        %end;
+        .thread T_0;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+        "N/A";
+        "<interactive>";
+        "HelloWorld.vl";

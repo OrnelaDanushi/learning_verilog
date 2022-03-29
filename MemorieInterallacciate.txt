@@ -1,0 +1,143 @@
+﻿Memorie Modulari
+
+
+/*Memoria modulare interallacciata di 2K parole costruita utilizzando 2 moduli da 1K parola l'uno.
+Il selettore S provvede a passare il beta che abilita la scrittura al primo o al secondo modulo, a seconda del bit meno significativo dell'indirizzo passato alla memoria modulare. Questo bit serve anche da segnale di controllo (alphaK) per il commutatore K*/
+
+
+//modulo RAM di memoria
+module memoria #(parameter N = 6, M = 32)(
+        output [M-1:0]data_out,
+        input clock,
+        input beta,
+        input [N-1:0]address,
+        input [M-1:0]data_in );
+        /*Definiamo la memoria come vettore da 2^N posizioni di parole da M bit*/
+        reg [M-1:0]mem_bank[2**N-1:0];
+        reg [N:0]i;
+        /*Con il seguente modulo e' prevista l'inizializzazione del modulo di memoria, in modo che tutte le locazioni contengano inizialmente il valore 0.*/
+        initial begin
+            for(i=0; i<2**N; i=i+1)
+                mem_bank[i] = 0;
+        end
+    
+        /*Con il seguente blocco, il valore presente sull'ingresso viene scritto nella locazione individuata dall'indirizzo in ingresso sul fronte di salita del segnale di clock e beta=1*/
+        always@(posedge clock)
+            begin
+                if(beta)
+                    mem_bank[address] = data_in;
+            end
+        /*Il seguente assegnamento continuo provvede a copiare in uscita il contenuto della cella di memoria individuata dallo stesso indirizzo in ingresso.*/
+        assign data_out = mem_bank[address];
+endmodule
+
+
+module commutatore_nbit(z, x, y, alpha);
+        /* i moduli possono avere parametri definiti per default
+        che possono essere variati in fase di istanziazione.
+        Devono essere dichiarati subito dopo la testa del modulo */
+        parameter N = 32;
+        output [N-1:0]z;         // z = output da N bit
+        input [N-1:0]x;            // x, y = input da N bit
+        input [N-1:0]y;
+        input alpha;            // alpha = input di controllo da 1 bit
+        assign z = ( (~alpha) ? x : y);
+/* Il commutatore a n vie è stato qui definito con una espressione dell’algebra booleana. */
+endmodule
+
+
+module memoriaModuliInterallacciata(data_out, clock, write_enable, address, data_in);
+    parameter N = 11;
+    parameter M = 32;
+
+
+    output [M-1:0]data_out;
+    input clock;
+    input write_enable;
+    input [N-1:0]address;
+    input [M-1:0]data_in;
+
+
+    /*I seguenti fili servono
+            per portare i segnali necessari al funzionamento delle porte utilizzate (not, and, ..)
+            per sostituire il selettore per la gestione del beta di abilitazione alla scrittura
+            per collegare le uscite dei 2 moduli di memoria agli ingressi del commutatore dhe genera il valore letto in uscita*/
+    wire moduloSelettore0;
+    wire wr0; /*Segnale di abilitazione alla scrittura nel primo modulo*/
+    wire wr1; /*Segnale di abilitazione alla scrittura nel secondo modulo*/
+    wire [M-1:0]data_out0;
+    wire [M-1:0]data_out1;
+
+
+    not(moduloSelettore0, address[0]);
+    and(wr0, moduloSelettore0, write_enable);
+    
+    and(wr1, address[0], write_enable);
+
+
+    /*Definizione dei due moduli*/
+    memoria            #(10, M) modulo0(data_out0, clock, wr0, address[N-1:1], data_in);
+    memoria            #(10, M) modulo1(data_out1, clock, wr1, address[N-1:1], data_in);
+    
+    /*Commutatore che comanda la lettura*/
+    commutatore_nbit #(M) k1(data_out, data_out0, data_out1, address[0]);    
+
+
+endmodule
+
+
+module test();
+
+
+    //ingressi            
+    reg [10:0]addr;
+    reg [31:0]dato_in;
+    reg WrEn;
+
+
+    //uscite
+    wire [31:0]dato_out;
+    
+    //clock
+    reg clock;
+
+
+    //layout della rete sequenziale
+    memoriaModuliInterallacciata m(dato_out, clock, WrEn, addr, dato_in);
+
+
+    //generazione del clock
+    always begin
+            if(clock)
+                    #1 clock = ~clock;
+            else
+                    #9 clock = ~clock;
+    end    
+    
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            clock = 0;
+
+
+            dato_in = 7;
+            addr = 1;
+            #9 WrEn = 1;
+            #3 WrEn = 0;
+            
+            #10 dato_in = 2;
+            addr = 6;
+            #3 WrEn = 1;
+            #6 WrEn = 0;
+
+
+            #4 addr = 1;
+            #1 WrEn = 1;
+            #5 WrEn = 0;
+
+
+            #30 $finish;
+    end    
+endmodule

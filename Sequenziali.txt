@@ -1,0 +1,232 @@
+﻿Principi del modulo contenente l’automa principale
+
+
+* dichiarare le uscite del modulo come reg, cosi e’ possibile applicare loro l’assegnamento
+* dichiarare il registro di stato, come variabile di tipo reg con il numero di bit necessari per contenere lo stato interno
+* dichiarare i tipi wire necessari a collegare 
+   * l’uscita della rete sigma all’ingresso del registro di stato
+   * l’uscita della rete omega al registro delle uscite
+
+
+* creare le istanze della rete omega e della rete sigma utilizzando wire e registro di stato definiti nel modulo
+* in uno statement initial begin/end assegnare il valore iniziale al registro di stato e al registro delle uscite
+* in uno statement always@(negedge clock) begin/end, con clock=nome variabile d’ingresso che porta il segnale di clock, assegnare al registro di stato il valore dell’uscita di sigma e al registro delle uscite il valore dell’uscita di omega utilizzando lo statement variabile <= valore. Questo statement di assegnamento ha il significato di effettuare l’assegnamento in parallelo agli altri nel blocco.
+
+
+Automa di Mealy
+
+
+/*Implementazione come rete sequenziale di un automa di Mealy con
+2 stati, s0 e s1
+se in s0
+    riceve uno 0 --> rimane li' e manda in uscita un 1
+    riceve un 1 --> va in s1 e manda in uscita un 1
+se in s1
+    riceve uno 0 --> rimane li' e manda in unscita uno 0
+    riceve un 1 --> va in s0 e manda in uscita uno 0*/
+
+
+/*Definizione del modulo per la rete omega: implementazione della funzione delle uscite*/
+primitive automa_omega(output z, input s, input x);
+    table
+            0 0 : 1;
+            0 1 : 1;
+            1 0 : 0;
+            1 0 : 0;
+    endtable
+endprimitive
+
+
+/*Definizione del modulo per la rete sigma: implementazione della funzione di transzione dello stato interno*/
+primitive automa_sigma(output z, input s, input x);
+    table
+            0 0 : 0;
+            0 1 : 1;
+            1 0 : 1;
+            1 1 : 0;
+    endtable    
+endprimitive
+
+
+/*Definizione del modulo per l'automa di Mealy:
+ci sono 2 ingressi e una sola uscita, nel nostro caso, da 1 bit
+gli ingressi sono: l'ingresso vero e proprio e il segnale di clock necessario per impulsare il registro di stato
+l'uscita rappresenta l'uscita dell'automa, ed e' rappresentata come un registro, anziche' come un wire, in modo da poterne permettere l'assegnamento!*/
+module automa_mealy(output reg z, input clock, input x);
+
+
+    /*Lo stato interno e' modellato mediante un registro da 1 bit di default, non visibile all'esterno*/
+    reg stato;
+
+
+    wire uscita_omega;
+    wire uscita_sigma;
+
+
+    automa_omega omega(uscita_omega, stato, x);
+    automa_sigma sigma(uscita_sigma, stato, x);
+
+
+    initial begin
+            stato = 0;
+            z = 0;
+    end
+
+
+    always@(negedge clock)
+            begin
+                    stato <= uscita_sigma;
+                    z <= uscita_omega;
+            end
+endmodule
+
+
+/*Secondo modo di implementazione dell'automa di mealy*/
+module automa_mealy2(output reg z, input clock, input x);
+
+
+    reg stato;
+    
+    /*codifica degli stati
+    Si definiscono 2 costanti per esprimere simbolicamente i 2 stati dell'automa.*/
+    `define S0 0
+    `define S1 1
+
+
+    /*Inizializzazione dell'automa*/
+    initial begin
+            stato = `S0;    //si inizia in S0
+    end
+
+
+    /*Funzionamento dell'automa:
+    ogniqualvolta che il fronte del clock e' in discesa, assegnamo a S0 e a S1 il nuovo valore dello stato interno e l'uscita. L'operazione avviene con un assegnamento non bloccante, tipico nelle situazioni modellate nelle reti sequenziali! */
+    always@(negedge clock)
+            begin
+                    case(stato)
+                            `S0 : begin
+                                    stato <= (x==0 ? `S0 : `S1);
+                                    z <= 0;    
+                            end    
+                            `S1 : begin
+                                    stato <= `S0;
+                                    z <= (x==0 ? 0 : 1);
+                            end
+                    endcase
+            end
+endmodule
+
+
+Automa di Moore
+/*Implementazione dell'automa di moore*/
+module automa_moore(output reg z, input clock, input x);
+
+
+    /*Stato interno da 2 bit*/
+    reg [0:1]stato;
+    
+    /*codifica degli stati
+    Si definiscono 3 costanti per esprimere simbolicamente i 3 stati dell'automa.*/
+    `define S0 2'b00
+    `define S1 2'b01
+    `define S2 2'b11
+
+
+    /*Inizializzazione dell'automa*/
+    initial begin
+            stato = `S0;    //si inizia in S0
+            z = 0;
+    end
+
+
+    /*Funzionamento dell'automa:
+    ogniqualvolta che il fronte del clock e' in discesa, assegnamo a S0, S1 e a S2 il nuovo valore dello stato interno e l'uscita in z.*/
+    always@(negedge clock)
+            begin
+                    /*Il calcolo del nuovo stato interno precede, assegnamento sincrono, il calcolo dell'uscita, assegnamento asincrono*/
+                    case(stato)
+                            `S0 : stato = (x==0 ? `S0 : `S1);
+                            `S1 : stato = (x==0 ? `S0 : `S2);
+                            `S2 : stato = (x==0 ? `S0 : `S1);
+                    
+                            /*Siccome servono 3 stati, definiamo un caso defualt nel case per modellare situazioni di errore, in questo caso ci riportiamo nello stato iniziale*/
+                            default : stato = `S0;
+                    endcase
+                    /*L'uscita dipende esclusivamente dallo stato interno*/
+                    z <= (stato==`S2 ? 1 : 0);
+            end
+endmodule
+
+
+/*Utilizzando lo stesso modulo di test dovremmo aspettarci lo stesso output di quello di Mealy, rallentato soltanto di un ciclo di clock, visto che Moore e' piu' lento di Mealy.*/
+
+
+
+
+/*Secondo modo*/
+/*Mostriamo come modellare una rete sequenziale Lvel input, Level output, Clocked (LLC), mediante reti combinatorie omega e sigma e registro di stato.
+Consideriamo il solo automa di Moore. */
+
+
+/*Implementazione della rete combinatoria omega: funzione delle uscite
+Dara' sempre come risultato il primo bit, quello piu' significativo, del registro di stato*/
+module automa_omega( z, s);
+    output wire z;
+    input wire [1:0]s;
+    
+    assign z = s[1];
+endmodule
+
+
+/*Implementazione della rete sigma: calcola il prossimo stato interno*/
+module automa_sigma(z, s, x);
+    output wire [1:0]z;
+    input wire [1:0]s;
+    input wire x;
+    
+    assign z[1] = ((~s[1]) & (s[0]) & x);
+    assign z[0] = ((~s[1]) & (~s[0]) & x) | (s[1] & x);
+endmodule
+
+
+/*Implementazione dell'automa di moore
+La rete sequenziale utilizza le 2 reti sigma e omega e un registro di stato da 2 bit*/
+module automa_moore(output reg z, input clock, input x);
+
+
+    /*Stato interno da 2 bit*/
+    reg [1:0]stato;
+    
+    /*codifica degli stati interni
+    Si definiscono 3 costanti per esprimere simbolicamente i 3 stati dell'automa.*/
+    `define S0 2'b00
+    `define S1 2'b01
+    `define S2 2'b10
+
+
+    /*layout*/
+    wire [1:0]nuovostato;
+    wire uscita;
+    
+    automa_omega omega(uscita, stato);
+    automa_sigma sigma(nuovostato, stato, x);
+
+
+    /*Inizializzazione dell'automa*/
+    initial begin
+            stato = `S0;    //si inizia in S0
+            z = 0;
+    end
+
+
+    /*Funzionamento dell'automa:
+    ogniqualvolta che il fronte del clock e' in discesa, assegnamo a S0, S1 e a S2 il nuovo valore dello stato interno e l'uscita in z.*/
+    always@(negedge clock)
+            begin
+                    stato = nuovostato;
+                    z <= uscita;
+            end
+endmodule
+
+
+Reti sequenziali realizzate con componenti standard

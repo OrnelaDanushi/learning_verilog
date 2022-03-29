@@ -1,0 +1,87 @@
+﻿module MUX2_1(out, a, b, sel);
+
+
+        output out;
+        input a, b, sel;
+        reg out; 
+
+
+        always @(sel or a or b)
+                begin
+                        if(sel == 0)
+                                out <= a;
+                        else
+                                out <= b;
+                end
+endmodule
+
+
+//Sintassi
+#! /usr/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_0xa08cb20 .scope module, "MUX2_1" "MUX2_1" 2 1;
+ .timescale 0 0;
+v0xa08cba0_0 .net "a", 0 0, C4<z>; 0 drivers
+v0xa0d61b0_0 .net "b", 0 0, C4<z>; 0 drivers
+v0xa0d6210_0 .var "out", 0 0;
+v0xa0d6270_0 .net "sel", 0 0, C4<z>; 0 drivers
+E_0xa08de68 .event edge, v0xa0d61b0_0, v0xa08cba0_0, v0xa0d6270_0;
+    .scope S_0xa08cb20;
+T_0 ;
+    %wait E_0xa08de68;
+    %load/v 8, v0xa0d6270_0, 1;
+    %mov 9, 0, 1;
+    %cmpi/u 8, 0, 2;
+    %jmp/0xz  T_0.0, 4;
+    %load/v 8, v0xa08cba0_0, 1;
+    %ix/load 0, 1, 0;
+    %assign/v0 v0xa0d6210_0, 0, 8;
+    %jmp T_0.1;
+T_0.0 ;
+    %load/v 8, v0xa0d61b0_0, 1;
+    %ix/load 0, 1, 0;
+    %assign/v0 v0xa0d6210_0, 0, 8;
+T_0.1 ;
+    %jmp T_0;
+    .thread T_0, $push;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+    "N/A";
+    "<interactive>";
+    "Prova.vl";
+
+
+
+
+
+
+//Versione da completare con cicli
+module MUX2_1(out, a, b, sel);
+
+
+        output out;
+        input a, b, sel;
+        reg out; 
+
+
+        integer i; //oppure reg i??
+
+
+        always @(sel or a or b)
+                begin
+                        if(sel == 0)
+                                begin
+                                        out <= a;
+                                        for(i=0; i<10; i=i+1)        //i=0;        while(i < 10)        //repeat(5)
+                                                begin
+                                                        $display("i = %0d", i);        //i = i + 1;        
+                                                end
+                                end
+                        else
+                                out <= b;
+                end
+endmodule

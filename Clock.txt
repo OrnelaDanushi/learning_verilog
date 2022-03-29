@@ -1,0 +1,163 @@
+﻿CLOCK
+iverilog Prova.vl -o Prova
+./ Prova
+
+
+/* i costrutti begin/end indicano un blocco di comandi 
+Mediante i moduli possiamo definire componenti e “moduli di prova” ovvero moduli che servono per testare componenti o assemblaggi di componenti. Un modulo di prova è un modulo senza parametri formali. All’interno del modulo di prova possiamo utilizzare alcune istruzioni che serviranno a guidare la simulazione dei componenti e a registrarne gli effetti. 
+*/
+
+
+module clock();        //module <nome>();
+                        //dichiarazioni di wire per ognuno degli output del componente testato
+reg clock;                //dichiarazioni di register per ognuno degli input del componente testat
+
+
+initial                        //istanziazione del componente
+    begin
+            clock = 0;
+    end
+
+
+//programma di prova: assegna valori agli input, ovvero valori diversi in tempi diversi
+always // equivale a while(true)
+    begin
+            #10 clock = 1;
+            #1 clock = 0;
+            /*            
+            E' mantenuto alto il livello del clock per un'unita' di tempo
+            e' mantenuto basso il livello del clock per 10 unita' di tempo
+            */
+
+
+            /*
+            #1 clock = ~clock;
+            il valore del registro clock oscilla tra 0 e 1,
+            mantenendo tali stati per un'unica unita' di tempo
+            */    
+    end
+
+
+initial
+    begin
+            $monitor("%t %d", $time, clock);
+            #30
+            $finish;
+    end
+endmodule
+
+
+// versione con grafica inclusa
+iverilog Prova.vl -o Prova
+./Prova
+gtkwave Prova.vcd
+
+
+
+
+module clock();
+
+
+reg clock;
+
+
+initial
+    begin
+            clock = 0;
+    end
+
+
+always // equivale a while(true)
+    begin
+            #10 clock = 1;
+            #1 clock = 0;
+            /*            
+            E' mantenuto alto il livello del clock per un'unita' di tempo
+            e' mantenuto basso il livello del clock per 10 unita' di tempo
+            */
+
+
+            /*
+            #1 clock = ~clock;
+            il valore del registro clock oscilla tra 0 e 1,
+            mantenendo tali stati per un'unica unita' di tempo
+            */    
+    end
+
+
+initial
+    begin
+            $monitor("%t %d", $time, clock);
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+            #30
+            $finish;
+    end
+endmodule
+
+
+//file di sintesi
+#! /usr/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_0x93e6dd8 .scope module, "clock" "clock" 2 3;
+ .timescale 0 0;
+v0x93e6e58_0 .var "clock", 0 0;
+        .scope S_0x93e6dd8;
+T_0 ;
+        %set/v v0x93e6e58_0, 0, 1;
+        %end;
+        .thread T_0;
+        .scope S_0x93e6dd8;
+T_1 ;
+        %delay 10, 0;
+        %set/v v0x93e6e58_0, 1, 1;
+        %delay 1, 0;
+        %set/v v0x93e6e58_0, 0, 1;
+        %jmp T_1;
+        .thread T_1;
+        .scope S_0x93e6dd8;
+T_2 ;
+        %vpi_call 2 30 "$monitor", "%t %d", $time, v0x93e6e58_0;
+        %vpi_call 2 31 "$dumpfile", "Prova.vcd";
+        %vpi_call 2 32 "$dumpvars";
+        %delay 30, 0;
+        %vpi_call 2 34 "$finish";
+        %end;
+        .thread T_2;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+        "N/A";
+        "<interactive>";
+        "Prova.vl";
+
+
+
+
+/*Realizzazione del segnale di clock*/
+//`timescale 1ns/1ps
+
+
+module prova_clock();
+    
+    reg clock;
+    
+    always begin
+            if(clock==0)
+                    #4 clock = 1;
+            else
+                    #1 clock = 0;
+    end
+
+
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            #50 $finish;
+    end
+endmodule

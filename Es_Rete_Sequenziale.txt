@@ -1,0 +1,132 @@
+﻿/*Esempio 1 di Rete Sequenziale*/
+
+
+/*Per la realizzazione del registro*/
+module registro(r, clk, beta, i0);
+        parameter N = 32;
+        output [N-1:0]r;
+        input clk;
+        input beta;
+        input [N-1:0]i0;
+        reg [N-1:0]registroN;
+        /*In assenza di tale inizializzazione, la lettura del registro produrrebbe valori x, ovvero indefiniti */
+        initial begin
+            registroN = 0;
+        end    
+        always@(negedge clk)
+            begin    
+                if(beta==1)
+                    registroN = i0;
+            end
+        assign r = registroN;
+endmodule
+
+
+/*Per realizzazione dei commutatori K1 e K2 */
+module commutatore_nbit(z, alpha, x, y);
+        parameter N = 32;
+        output [N-1:0]z;
+        input [N-1:0]x;
+        input [N-1:0]y;
+        input alpha;   
+        assign #2 z = ( (~alpha) ? x : y); //con ritardo impiegato
+endmodule
+
+
+/*Per la realizzazione della alu*/
+module alu(risultato, segno, alpha, ingresso1, ingresso2);
+    parameter N = 32;
+    output reg [N-1:0]risultato;
+    output reg segno;
+    input alpha;    //2 operazioni possibili
+    input [N-1:0]ingresso1;
+    input [N-1:0]ingresso2;
+    always@(alpha or ingresso1 or ingresso2)
+            begin
+                    case(alpha)
+                            0 : #10 risultato = ingresso1+ingresso2;
+                            1 : #10 risultato = ingresso1-ingresso2;
+                    endcase
+                    segno = risultato[N-1];
+            end
+endmodule
+
+
+/*Per la realizzazione della rete sequenziale*/
+//`timescale 1ns/1ps
+module reteA();
+    parameter N = 32;
+
+
+    //ingressi
+    reg [N-1:0]M;
+    reg [N-1:0]Q;
+
+
+    //ingressi di controllo
+    reg alphaK1;
+    reg alphaK2;
+    reg alphaAlu;
+
+
+    //il segnale di scrittura sul registro e' sempre abilitato, sempre a 1, non dobbiamo cosi' fare un ulteriore controllo
+    reg betaA;
+
+
+    //clock
+    reg clock;
+    
+    //collegamenti tra i moduli standard
+    wire [N-1:0]uscitaK1;
+    wire [N-1:0]uscitaK2;
+    wire [N-1:0]uscitaRegA;    
+
+
+    //uscite
+    output [N-1:0]U;
+    output S;
+
+
+    //layout della rete sequenziale
+    registro             #(N) registroA(uscitaRegA, clock, betaA, U);
+    commutatore_nbit     #(N) K1(uscitaK1, alphaK1, M, uscitaRegA);
+    commutatore_nbit     #(N) K2(uscitaK2, alphaK2, uscitaRegA, Q);
+    alu                     #(N) ALU(U, S, alphaAlu, uscitaK1, uscitaK2);
+
+
+    //generazione del clock
+    always begin
+            if(clock)
+                    #1 clock = ~clock;
+            else
+                    #14 clock = ~clock;
+    end
+
+
+    //modulo per il test
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            betaA = 1'b1;
+            clock = 1'b0;
+
+
+            M = 15;
+            Q = 5;
+
+
+            alphaK1 = 0;
+            alphaK2 = 1;
+            alphaAlu = 1;
+
+
+            #20 alphaK1 = 1;
+            #20 alphaK2 = 1;
+            #17 alphaAlu = 0;
+            Q = -6;
+    
+            #30 $finish;    
+    end
+endmodule

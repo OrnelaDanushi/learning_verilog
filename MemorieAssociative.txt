@@ -1,0 +1,417 @@
+﻿/* Memoria associativa di P posizioni.
+Le chiavi hanno lunghezza C e la parola e' di W bit.
+Servono P confrontatori, capaci di eseguire il confronto tra la chiave fornita in ingresso e le chiavi memorizzate nelle P posizioni della memoria associativa.*/
+
+
+/*Utilizzando il confrontatore da 1 bit, possiamo generalizzare e utilizzare questo modulo per realizzare un confrontatore da N bit. A tale scopo utilizziamo la stessa tecnica usata per il commutatore da N bit. Utilizziamo la possibilita' di implementare "reduce" di parole mediante operatori booleani. Una reduce e' una operazione su un vettore di dati x1, x2, ..., xn che, dato un operatore XX calcola x1 XX x2 XX ... XX xn*/
+
+
+primitive confrontatore_1bit(output z, input x, input y);
+/*Definisce il componente confrontatore con ingressi da 1 bit
+genera un'uscita 1 in caso di ingressi uguali, viceversa, un'uscita 0 in caso di ingressi diversi */
+        table
+            0 0 : 0;
+            0 1 : 1;
+            1 0 : 1;
+            1 1 : 0;    
+        endtable
+endprimitive
+
+
+module confrontatore_Nbit(z, x, y);
+    parameter N = 32;
+    
+    output z;
+
+
+    input [N-1:0]x;
+    input [N-1:0]y;
+
+
+    wire [N-1:0]r;
+
+
+    genvar i;
+
+
+    generate
+            for(i=0; i<N; i=i+1)
+            begin
+                    confrontatore_1bit t(r[i], x[i], y[i]);
+            end
+    endgenerate
+
+
+        assign z = | r;
+endmodule
+
+
+/*Ora si crea il modulo capace di generare il segnale di fault e l'eventuale indirizzo individuato dalla chiave nella memoria dei dati. Tale modulo contiene: la memoria delle chiavi, i confrontatori, e deve mettere a disposizione come "operazioni esterne" la possibilita' di ricercare una chiave o di memorizzarla in una certa posizione.
+Il modulo e' parametrico rispetto al numero di posizioni della memoria associativa (sono 2^P, con P=numero di bit dell'indirizzo per la memoria che contiene le chiavi), alla lunghezza in bit delle chiavi C e alla lunghezza della parola utilizzata per le informazioni W.*/
+
+
+module unifault( fault, indout, clock, op, ind, chiave);
+    parameter P = 2; //numero posizioni
+    parameter C = 16; //lunghezza delle chiavi
+    parameter W = 32; //lunghezza delle parole
+
+
+    output                    fault; //segnale di chiave non presente
+    output reg     [P-1:0]indout; //indirizzo della chiave, se trovata
+    input                     clock; //segnale di clock
+    input                    op;        //op=1-->scrivi chiave a ind
+                                       //op=0-->leggi chiave
+    input             [P-1:0]ind; //indirizzo per scrivere la chiave
+    input            [C-1:0]chiave; //chiave da scrivere
+
+
+    reg [C-1:0]chiavi[2**P-1:0]; //memoria delle chiavi
+    /*La memoria delle chiavi viene utilizzata come un insieme di registri indipendenti nello statement generate, in modo da instanziare un confrontatore da C bit per posizione*/
+
+
+    wire [2**P-1:0]confronti; //uscite dei confrontatori
+    
+    //blocco dei confrontatori: metodo generativo
+    genvar i;
+    generate
+            for(i=0; i<2**P; i=i+1)
+                    confrontatore_Nbit #(C) c( confronti[i], chiavi[i], chiave);
+    endgenerate
+
+
+    //generazione del segnale di fault
+    assign fault = & confronti;
+    /*L'uscita dei confrontatori, opportunamente "ridotta" mediante un operatore AND definisce il valore del segnale di fault*/
+
+
+    //generazione dell'indirizzo della chiave
+    reg [P-1:0]indtemp;
+    reg [2**P-1:0]indl;
+    always@(negedge clock)
+    begin
+            /*Le due "operazioni esterne" sono qui definite:
+            il primo ramo del case calcola l'indirizzo contando in quale posizione si trova il bit a 0 nel vettore dei risultati dei confrontatori tra chiave in ingresso e chiavi memorizzate.
+            il secondo ramo del case memorizza semplicemente la chiave presentata in ingresso nella posizione indicata dall'indirizzo (anch'esso) in ingresso, e serve quindi per l'inizializzazione dei valori delle chiavi*/
+            case(op)
+                    1'b0: //read
+                            begin
+                                    indtemp = 0;
+                                    indl = confronti;
+                                    while(indl[0]==1)
+                                            begin
+                                                    indtemp = indtemp + 1;
+                                                    indl = indl >> 1;
+                                            end
+                                    indout <= indtemp;
+                            end
+                    1'b1: //write
+                            begin
+                                    chiavi[ind] = chiave;
+                            end
+            endcase
+    end
+endmodule
+
+
+//`timescale 1ns/1ps
+module prova_unifault();
+    //clock
+    reg clock;
+
+
+    parameter P = 2; //bit di indirizzo della memoria associativa
+    parameter C = 16; //bit delle chiavi
+    parameter W = 32; //bit delle parole
+
+
+    reg [P-1:0]indin;//indirizzo in ingresso
+    reg op; //operazione da fare
+    reg [C-1:0]chiave; //chiave da utilizzare
+
+
+    //uscite
+    wire fault;//segnale di fault
+    wire [P-1:0]indout;//indirizzo del dato in memoria    
+    
+    unifault #(P,C,W) uf( fault, indout, clock, op, indin, chiave);
+
+
+    always begin     //generazione del clock
+            if(clock==1)
+                    #1 clock = ~clock;
+            else
+                    #5 clock = ~clock;
+    end
+
+
+    initial begin
+            clock = 0;
+
+
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            $monitor("op %b ind %b ch %b -> fault %b ind %b \n",
+                    op, indin, chiave, fault, indout);
+
+
+            op = 1;//scrittura
+            chiave = 13;
+            indin = 0;
+
+
+            #7
+            chiave = 7;
+            indin = 1;
+
+
+            #6
+            chiave = 17;
+            indin = 2;
+
+
+            #6
+            chiave = 3;
+            indin = 3;
+
+
+            //iniziano le lettura
+            #6
+            op = 0;
+            chiave = 7;
+
+
+            #6
+            chiave = 8;
+
+
+            #6
+            chiave = 17;
+
+
+            #10 $finish;
+    end
+
+
+endmodule
+
+
+
+
+/*Seconda versione*/
+
+
+/* Memoria associativa di P posizioni.
+Le chiavi hanno lunghezza C e la parola e' di W bit.
+Servono P confrontatori, capaci di eseguire il confronto tra la chiave fornita in ingresso e le chiavi memorizzate nelle P posizioni della memoria associativa.*/
+
+
+/*Utilizzando il confrontatore da 1 bit, possiamo generalizzare e utilizzare questo modulo per realizzare un confrontatore da N bit. A tale scopo utilizziamo la stessa tecnica usata per il commutatore da N bit. Utilizziamo la possibilita' di implementare "reduce" di parole mediante operatori booleani. Una reduce e' una operazione su un vettore di dati x1, x2, ..., xn che, dato un operatore XX calcola x1 XX x2 XX ... XX xn*/
+
+
+primitive confrontatore_1bit(output z, input x, input y);
+/*Definisce il componente confrontatore con ingressi da 1 bit
+genera un'uscita 1 in caso di ingressi uguali, viceversa, un'uscita 0 in caso di ingressi diversi */
+        table
+            0 0 : 0;
+            0 1 : 1;
+            1 0 : 1;
+            1 1 : 0;    
+        endtable
+endprimitive
+
+
+module confrontatore_Nbit(z, x, y);
+    parameter N = 32;
+    
+    output z;
+
+
+    input [N-1:0]x;
+    input [N-1:0]y;
+
+
+    wire [N-1:0]r;
+
+
+    genvar i;
+
+
+    generate
+            for(i=0; i<N; i=i+1)
+            begin
+                    confrontatore_1bit t(r[i], x[i], y[i]);
+            end
+    endgenerate
+
+
+        assign z = | r;
+endmodule
+
+
+/*Con il precedente modulo possiamo fare 2 cose:
+-scrivere un ulteriore modulo che implementi la parte relativa alla memorizzazione dei valori associati alle chiavi e quindi integrare in un modulo "memoriaAssociativa" una istanza di entrambi i moduli, opportunamente configurati (mediante i parametri) e collegati (mediante wire di dimensioni opportune)
+-estenderlo leggermente per includere un modulo di memoria che possa contenere direttamente anche i valori associati alle chiavi. Tale memoria verrebbe utilizzata in fase di inserimento di una chiave per memorizzare anche il valore del dato corrispondente e in fase di lettura per trovare il valore del dato da restituire in caso di hit.
+Scegliamo di implementare la seconda opzione*/
+
+
+module assoc(fault, indout, valout, clock, op, ind, val, chiave);
+    parameter P = 2; //bit di indirizzo della memoria associativa
+    parameter C = 16; //bit delle chiavi
+    parameter W = 32; //bit delle parole
+
+
+    output fault; //segnale di chiave non presente
+    output reg [P-1:0]indout; //indirizzo della chiave, se trovata
+    output reg [W-1:0]valout; //valore associato alla chiave cercata
+    input clock; //segnale di clock
+    input op;        //op=1-->scrivi chiave a ind
+                     //op=0-->leggi chiave
+    input [P-1:0]ind; //indirizzo per scrivere la chiave
+    input [W-1:0]val; //valore da associare alla chiave
+    input [C-1:0]chiave; //chiave da scrivere
+
+
+    reg [C-1:0]chiavi[2**P-1:0]; //memoria delle chiavi
+    /*La memoria delle chiavi viene utilizzata come un insieme di registri indipendenti nello statement generate, in modo da instanziare un confrontatore da C bit per posizione*/
+
+
+    reg [W-1:0]valori[2**P-1:0]; //memoria dei valori
+    wire [2**P-1:0]confronti; //uscite dei confrontatori
+
+
+    //blocco dei confrontatori: metodo generativo
+    genvar i;
+    generate
+            for(i=0; i<2**P; i=i+1)
+                    confrontatore_Nbit #(C) c( confronti[i], chiavi[i], chiave);
+    endgenerate
+
+
+    //generazione del segnale di fault
+    assign fault = & confronti;
+    /*L'uscita dei confrontatori, opportunamente "ridotta" mediante un operatore AND definisce il valore del segnale di fault*/
+
+
+    //generazione dell'indirizzo della chiave
+    reg [P-1:0]indtemp;
+    reg [2**P-1:0]indl;
+    always@(negedge clock)
+    begin
+
+
+            /*Le due "operazioni esterne" sono qui definite:
+            il primo ramo del case calcola l'indirizzo contando in quale posizione si trova il bit a 0 nel vettore dei risultati dei confrontatori tra chiave in ingresso e chiavi memorizzate.
+            il secondo ramo del case memorizza semplicemente la chiave presentata in ingresso nella posizione indicata dall'indirizzo (anch'esso) in ingresso, e serve quindi per l'inizializzazione dei valori delle chiavi*/
+
+
+            case(op)
+                    1'b0: //read
+                            begin
+                                    indtemp = 0;
+                                    indl = confronti;
+                                    while(indl[0]==1)
+                                            begin
+                                                    indtemp = indtemp + 1;
+                                                    indl = indl >> 1;
+                                            end
+                                    indout <= indtemp;
+                                    valout <= valori[indtemp];
+                            end
+                    1'b1: //write
+                            begin
+                                    chiavi[ind] = chiave;
+                                    valori[ind] = val;
+                            end
+            endcase
+    end
+endmodule
+
+
+//`timescale 1ns/1ps
+module prova_assoc();
+    reg clock; //clock
+
+
+    parameter P = 2; //bit di indirizzo della memoria associativa
+    parameter C = 16; //bit delle chiavi
+    parameter W = 32; //bit delle parole
+
+
+    reg [P-1:0]indin;//indirizzo in ingresso
+    reg op; //operazione da fare
+    reg [C-1:0]chiave; //chiave da utilizzare
+    reg [W-1:0]valore; //valore da memorizzare
+
+
+    //uscite
+    wire fault;//segnale di fault
+    wire [P-1:0]indout;//indirizzo del dato in memoria    
+    wire [W-1:0]valout;//valore letto
+    
+    assoc #(P,C,W) a( fault, indout, valout, clock, op, indin, valore, chiave);
+
+
+    always begin     //generazione del clock
+            if(clock==1)
+                    #1 clock = ~clock;
+            else
+                    #5 clock = ~clock;
+    end
+
+
+    initial begin
+            clock = 0;
+
+
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            $monitor("op %d ind %d ch %d val %d -> fault %d ind %d val %d \n", op, indin, chiave, valore, fault, indout, valout);
+
+
+            op = 1;//scrittura
+            chiave = 13;
+            indin = 0;
+            valore = 4;
+
+
+            #7
+            chiave = 7;
+            indin = 1;
+            valore = 3;
+
+
+            #6
+            chiave = 17;
+            indin = 2;
+            valore = 2;
+
+
+            #6
+            chiave = 3;
+            indin = 3;
+            valore = 1;
+
+
+            //iniziano le lettura
+            #6
+            op = 0;
+            chiave = 7;
+
+
+            #6
+            chiave = 8;
+
+
+            #6
+            chiave = 17;
+
+
+            #10 $finish;
+    end
+
+
+endmodule

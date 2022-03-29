@@ -1,0 +1,98 @@
+﻿/* Programma di 2 Flip Flop
+Il nome deriva dal rumore che facevano i primi circuiti di questo tipo, essi permettevano il cambiamento di stato.
+Sono circuiti elettronici sequenziali usati come dispositivi di memoria elementare.
+*/
+module toplevel(clock,reset);
+    
+    input clock;
+    input reset;
+
+
+    reg ff1;
+    reg ff2;
+
+
+/* L'operatore <= costituisce un altro aspetto che Verilog e' un linguaggio per la descrizione dell'hardware e non un normale linguaggio procedurale.
+Tale operatore e' conosciuto come ASSEGNAZIONE NON BLOCCANTE: quando la simulazione viene eseguita, tutti quei segnali impostati mediante <= vengono modificati solo dopo che tutte le istruzioni che avvengono nello stesso momento sono state eseguite. Questo rende piu' semplice descrivere comportamenti che avvengono simultaneamente.
+*/
+always@(posedge reset or posedge clock)
+    if(reset)
+            begin
+                    ff1 <= 0;
+                    ff2 <= 1;
+            end
+    else
+            begin
+                    ff1 <= ff2;
+                    ff2 <= ff1;
+            end
+/*
+Nell'esempio: ff1 e' assegnato a ff2 e ff2 a ff1, tali istruzioni sono eseguite durante lo stesso evento temporale, in questo modo si realizza lo switch.
+Visto che le assegnazioni sono codificate mediante <=, queste accadono alla fine dell'evento e sino ad allora tutte le letture dei valori di ff1 e ff2 si scambieranno i valori ad ogni ciclo.    
+*/
+initial
+    begin
+            $monitor("%t %d %d", $time, ff1, ff2);
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+            #30
+            $finish;
+    end
+
+
+endmodule
+
+
+/* L'altra scelta per l'assegnazione e' l'operatore =, conosciuto come ASSEGNAZIONE BLOCCANTE: quando viene utilizzato, le cose accadono nella sequenza con cui appaiono, come in un linguaggio procedurale.
+Nell'esempio: se le assegnazioni avessero fatto uso di = invece di <=, l'ordine con cui compaiono avrebbe influenzato il comportamento: il reset avrebbe impostato ff2 a 1 e ff1 a 0. Al ciclo successivo, ff1 sarebbe stato impostato al valore di ff2, che e' 1 dopo il reset. L'istruzione successiva verrebbe stata quindi eseguita e avrebbe impostato ff2 a ff1, che adesso e' pari a 1. Invece di scambiare i valori ad ogni ciclo, ff1 e ff2 sarebbero stati impostati a 1 e rimasti cosi.
+*/
+
+
+//Sintesi
+#! /usr/bin/vvp
+:ivl_version "0.9.7 " "(v0_9_7)";
+:vpi_time_precision + 0;
+:vpi_module "system";
+:vpi_module "v2005_math";
+:vpi_module "va_math";
+S_0x9c1da20 .scope module, "toplevel" "toplevel" 2 5;
+ .timescale 0 0;
+v0x9c1daa0_0 .net "clock", 0 0, C4<z>; 0 drivers
+v0x9c66b30_0 .var "ff1", 0 0;
+v0x9c66b90_0 .var "ff2", 0 0;
+v0x9c66bf0_0 .net "reset", 0 0, C4<z>; 0 drivers
+E_0x9c1dd68 .event posedge, v0x9c1daa0_0, v0x9c66bf0_0;
+        .scope S_0x9c1da20;
+T_0 ;
+        %wait E_0x9c1dd68;
+        %load/v 8, v0x9c66bf0_0, 1;
+        %jmp/0xz  T_0.0, 8;
+        %ix/load 0, 1, 0;
+        %assign/v0 v0x9c66b30_0, 0, 0;
+        %ix/load 0, 1, 0;
+        %assign/v0 v0x9c66b90_0, 0, 1;
+        %jmp T_0.1;
+T_0.0 ;
+        %load/v 8, v0x9c66b90_0, 1;
+        %ix/load 0, 1, 0;
+        %assign/v0 v0x9c66b30_0, 0, 8;
+        %load/v 8, v0x9c66b30_0, 1;
+        %ix/load 0, 1, 0;
+        %assign/v0 v0x9c66b90_0, 0, 8;
+T_0.1 ;
+        %jmp T_0;
+        .thread T_0;
+        .scope S_0x9c1da20;
+T_1 ;
+        %vpi_call 2 33 "$monitor", "%t %d %d", $time, v0x9c66b30_0, v0x9c66b90_0;
+        %vpi_call 2 34 "$dumpfile", "Prova.vcd";
+        %vpi_call 2 35 "$dumpvars";
+        %delay 30, 0;
+        %vpi_call 2 37 "$finish";
+        %end;
+        .thread T_1;
+# The file index is used to find the file name in the following table.
+:file_names 3;
+        "N/A";
+        "<interactive>";
+        "Prova.vl";

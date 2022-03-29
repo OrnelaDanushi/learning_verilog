@@ -1,0 +1,156 @@
+﻿/*Indicatore di Interfaccia di Ingresso RDY, il sincronizzatore*/
+
+
+/*Per la realizzazione del registro*/
+module registro(r, clk, beta, i0);
+        parameter N = 32;
+        output [N-1:0]r;
+        input clk;
+        input beta;
+        input [N-1:0]i0;
+        reg [N-1:0]registroN;
+        /*In assenza di tale inizializzazione, la lettura del registro produrrebbe valori x, ovvero indefiniti */
+        initial begin
+            registroN = 0;
+        end    
+        always@(negedge clk)
+            begin    
+                if(beta==1)
+                    registroN = i0;
+            end
+        assign r = registroN;
+endmodule
+
+
+/*Per la realizzazione del comparatore/confrontatore/contatore modulo2*/
+module confrontatore(output z, input x, input y);
+        assign z = (x==y ? 1 : 0);
+endmodule
+
+
+/*Per la realizzazione confrontatore con ritardo*/
+module confrontatore_ritardato(output z, input x, input y);
+        assign #2 z = (x==y ? 1 : 0);
+endmodule
+
+
+/*Per la realizzazione del sincronizzatore rdy*/
+module rdy(
+    output rdyin, /*segnale da testare*/
+    input rdy, /*ingresso rdy da altra unita'*/
+    input clock, /*segnale di clock*/
+    input beta); /*segnale di reset del RDYIN*/
+
+
+    /*Non si fa altro che definire i "wire" per collegare il registro di ingresso ed il confrontatore ritardato con l'altro confrontatore e utilizzare questi wire, insieme agli ingressi e alla uscita*/
+    wire uscitaContatore;
+    wire uscitaRgistro;
+
+
+    confrontatore_ritardato Y( uscitaContatore, beta, clock);
+    confrontatore oplus(rdyin, uscitaContatore, uscitaRegistro);    
+
+
+    /*Il registro S, di ingresso, e' definito come registro da 1 bit, con il parametro #(1) passato durante l'istanziazione e che il beta di tale registro e' sempre a 1 (parametro 1'b1 passato al posto del beta nei parametri attuali dell'istanziazione del modulo registro)*/
+    registro #(1) S(uscitaRegistro, clock, 1'b1, rdy);
+endmodule
+
+
+module rdy_behavioural(
+    output rdyin,
+    input lineaRdy,
+    input clock,
+    input betaRdyIn);
+    
+    reg c;
+
+
+    initial begin
+            c = 0;
+    end
+    
+    always@(negedge clock)
+    begin
+            if(betaRdyIn==1)
+                    c = ~c;
+    end
+
+
+    assign rdyIn = (lineaRdy==c ? 0 : 1);
+endmodule
+
+
+/*Per la realizzazione del programma di test*/
+//`timescale 1ns/1ps
+module testRdy();
+
+
+    //ingressi
+    reg lineaRdy;
+    reg betaRdyIn;
+
+
+    //clock
+    reg clock;
+    
+    //uscite
+    wire rdyIn;
+
+
+    //layout della rete sequenziale
+    rdy             rdy(rdyIn, lineaRdy, clock, betaRdyIn);
+    rdy_behavioural RDY(rdyIn, lineaRdy, clock, betaRdyIn);
+
+
+    //generazione del clock
+    always begin
+            if(clock)
+                    #1 clock = ~clock;
+            else
+                    #4 clock = ~clock;
+    end
+
+
+    //modulo per il test
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            clock = 0;
+
+
+            lineaRdy = 0;
+            betaRdyIn = 0;
+
+
+            /*Il segnale in ingresso passa da 0 a 1 al tempo di 6ns.*/
+            #6 lineaRdy = 1;
+
+
+            /*Al fronte di discesa del ciclo di clock (al tempo 10 ns) il segnale di uscita del sincronizzatore (il bit rdyIn che testiamo nel microcodice, di fatto) registra l'avvenuta segnalazione del ready passando a 1*/
+            #10 betaRdyIn = 1;
+            /*A 16ns mettiamo a 1 l'ingresso di controllo del confrontatore_ritardato, (sarebbe un reset rdyIn nel microcodice)*/
+
+
+            /*Sul fronte di discesa del prossimo segnale di clock, l'uscita del sincronizzatore viene posta a 1, anche se il segnale di ingresso rimane a 1 come da specifica del sincronizzatore*/
+
+
+            #7 betaRdyIn = 0;
+
+
+            #4 lineaRdy = 0;
+
+
+            /*A 27ns il segnale di ingresso cambia, e al successivo ciclo di clock il segnale di uscita ritorna alto.*/            
+
+
+            #5 betaRdyIn = 1;
+
+
+            /*Il segnale di reset, inviato ora in immediata successione, fa si' che il segnale in uscita rdyIn venga immediatamente riposto a 0 al successivo ciclo di clock.*/
+            #5 betaRdyIn = 0;
+    
+            #30 $finish;    
+    end
+endmodule

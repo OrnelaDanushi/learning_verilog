@@ -1,0 +1,829 @@
+﻿/* Possono avere solo una variabile di output e tale variabile deve essere da 1 bit.
+Possono avere un numero arbitrario di variabili di input, che però devono essere anche loro da 1 bit.
+La tabella di verità utilizza le colonne come se fossero intestate con le variabili di input nell’ordine in cui compaiono nella lista dei parametri formali del modulo primitive. */
+
+
+confrontatore
+primitive confrontatore(output z, input x, input y);
+/*Definisce il componente confrontatore con ingressi da 1 bit
+genera un'uscita 1 in caso di ingressi uguali, viceversa, un'uscita 0 in caso di ingressi diversi */
+        table
+                0 0 : 0;
+                0 1 : 1;
+                1 0 : 1;
+                1 1 : 0;        
+        endtable
+endprimitive
+
+
+/* utilizzando invece un modulo behavioural */
+module confrontatore(output z, input x, input y);
+        assign z = (x==y ? 1 : 0);
+        /*oppure         assign z = ~((x&y) | ( (~x) & (~y)));        */
+endmodule
+
+
+module confrontatore(output reg z, input x, input y);
+/* Non e' possibile assegnare un blocco always senza ritardo 
+La variabile di output  e' definita come reg perche' non e' possibile assegnare valori a wire*/
+always 
+        begin
+                if(x==y)
+                        #2 z = 0;
+                else
+                        #2 z = 1;
+        end
+endmodule
+
+
+//eseguendo
+module confrontatore(output reg z, input x, input y);
+always
+        begin
+                if(x==y)
+                        #1 z = 0;
+                else 
+                        #1 z = 1;
+        end
+endmodule
+
+
+module Prova();
+
+
+        reg inx, iny;
+        wire out;
+
+
+        confrontatore confr1(out, inx, iny);
+
+
+        initial 
+                begin
+                        $dumpfile("Prova.vcd");
+                        $dumpvars;
+                
+                        inx = 0;
+                        iny = 0;
+
+
+                        #4 inx = 1;
+                        #4 iny = 1;
+                        #4 iny = 0;
+                        #4 inx = 0;
+                        #4 $finish;
+                end
+endmodule
+
+
+module confrontatore_Nbit(output z, input x, input y);
+    parameter N = 32;
+    
+    input [N-1:0]x;
+    input [N-1:0]y;
+
+
+    wire [N-1:0]r;
+
+
+    genvar i;
+
+
+    generate
+            for(i=0; i<N; i=i+1)
+            begin
+                    confrontatore_1bit t(r[i], x[i], y[i]);
+            end
+    endgenerate
+
+
+        assign z = | r;
+endmodule
+
+
+module and_tp(output z, input x, input y);
+
+
+        assign #1 z = x & y;
+endmodule
+
+
+module or_tp(output z, input x, input y);
+        assign #1 z = x | y;
+endmodule
+
+
+module confrontatore(output wire z, input wire x, input wire y);
+    wire termine1;
+    wire termine2;
+    wire notx;
+    wire noty;
+
+
+    not(notx, x);
+    not(noty, y);
+
+
+    and_tp and1(termine1, notx, y);
+    and_tp and2(termine2, x, noty);    
+
+
+    or_tp or1(z, termine1, termine2);
+endmodule
+/*L’uscita del confrontatore assume il valore atteso dopo 2 nanosecondi dalla stabilizzazione dei valori in ingresso.*/
+module confrontatore(output wire z, input wire x, input wire y);
+    assign #2 z = ((~x)&y)|(x&(~y));
+endmodule
+
+
+module provaConfrontatore();
+    /*registri che conterranno i valori di input alla rete da testare*/
+    reg a;
+    reg b;
+
+
+    /*filo per l'output della rete da testare (potrebbe anche essere reg)*/
+    wire f;
+
+
+    confrontatore c1(f, a, b);
+
+
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            a = 0;
+            b = 0;
+
+
+            #10 a = 1;
+            #10 b = 1;
+            #10 a = 0;
+            #10 b = 0;
+
+
+            #10 $finish;
+    end
+endmodule
+
+
+
+
+Mux_21
+primitive Mux_21(output o, input a, input b, input s);
+        table
+                // a b s : o        la s non e' supportata e viene quindi mappata come x 
+                0 ? 1 : 0;        //il ? rappresenta qualunque valore
+                1 ? 1 : 1;
+                ? 0 0 : 0;
+                ? 1 0 : 1;
+                0 0 x : 0;
+                1 1 x : 1;        //ogni combinazione non indicata produce una x in uscita
+        endtable
+endprimitive
+
+
+And 
+primitive And(output z, input x, input y);
+/* Definisce il componente logico and con ingressi da 1 bit
+genera un'uscita 1 in caso di ingressi uguali a 1, altrimenti, un'uscita 0 */
+        table
+                0 0 : 0;
+                0 1 : 0;
+                1 0 : 0;
+                1 1 : 1;
+                /* oppure
+                0 ? : 0;
+                1 0 : 0;
+                1 1 : 1;*/
+        endtable
+endprimitive
+
+
+module and_tp(output z, input x, input y);
+    assign #1 z = x & y;
+endmodule
+
+
+Or
+primitive Or(output z, input x, input y);
+/* Definisce il componente logico or con ingressi da 1 bit
+genera un'uscita 1 in caso di ingressi almeno uno uguale a 1, altrimenti, un'uscita 0 */
+        table
+                0 0 : 0;
+                0 1 : 1;
+                1 0 : 1;
+                1 1 : 1;
+                /* oppure
+                0 0 : 0;
+                0 1 : 1;
+                1 ? : 1;*/
+        endtable
+endprimitive
+
+
+module or_tp(output z, input x, input y);
+        assign #1 z = x | y;
+endmodule
+
+
+commutatore
+//con ingressi/uscite a n bit e usa espressione dell’algebra booleana
+module commutatore_nbit(z, x, y, alpha);
+
+
+        /* i moduli possono avere parametri definiti per default
+        che possono essere variati in fase di istanziazione.
+        Devono essere dichiarati subito dopo la testa del modulo */
+        parameter N = 32;
+
+
+        output [N-1:0]z;         // z = output da N bit
+        input [N-1:0]x;                // x, y = input da N bit
+        input [N-1:0]y;
+        input alpha;                // alpha = input di controllo da 1 bit
+
+
+        assign z = ( (~alpha) ? x : y);
+/* Il commutatore a n vie è stato qui definito con una espressione dell’algebra booleana. */
+
+
+endmodule
+
+
+//con ingressi/uscite a 1 bit e usa tabella di verità
+primitive k( output z, input alpha, input x, input y);
+        table
+                0 0 ? : 0;
+                0 1 ? : 1;
+                1 ? 0 : 0;
+                1 ? 1 : 1;
+        endtable
+endprimitive
+
+
+//con ingressi/uscite a 2 bit usando espressione booleana bit a bit
+module commutatore_2bit( output [1:0]z, input alpha, input [1:0]x, input [1:0]y);
+        assign z[1] = ( (~ alpha) & x[1] )+( alpha & y[1]);
+        assign z[0] = ( (~ alpha) & x[0] )+( alpha & y[0]);
+endmodule
+
+
+//prova del commutatore a 2 bit 
+module commutatore_2bit(output [1:0]z, input alpha, input [1:0]x, input [1:0]y);
+
+
+    assign z[1] = ( (~alpha) & x[1] ) + ( alpha & y[1] );
+    assign z[0] = ( (~alpha) & x[0] ) + ( alpha & y[0] );
+
+
+endmodule
+
+
+module prova_commutatore();
+
+
+    wire [1:0]zz;
+    
+    reg a;
+    reg [1:0] x1;
+    reg [1:0] x2;
+
+
+    commutatore_2bit k( zz, a, x1, x2);
+
+
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            x1 = 2'b00;
+            x2 = 2'b11;
+            a = 0;
+            
+            #5 a = 1;
+            #10 x2 = 2'b10;
+            #10 $finish;
+    end
+endmodule
+
+
+/*Possiamo definire un commutatore a N bit come giustapposizione di N commutatori per ingressi da 1 bit*/
+module commutatore(output z, input alpha, input x, input y);
+        assign z = ( (~alpha) ? x : y);
+endmodule
+
+
+module commutatore_nbit_generative(z, alpha, x, y);
+    parameter N = 32;
+
+
+    /*dichiariamo i parametri in ingresso/uscita come valori da N bit*/
+    output [N-1:0]z;
+    input alpha;
+    input [N-1:0]x;
+    input [N-1:0]y;
+
+
+    /*dichiariamo una variabile generativa che serve da indice per la generazione delle istanze dei commutatori che commutano ingressi da un singolo bit e la utilizziamo per generare N istanze del modulo commutatore*/
+    genvar i;
+    
+    generate
+            for(i=0; i<N; i=i+1)
+            begin
+                    commutatore t(z[i], alpha, x[i], y[i]);    
+            end
+    endgenerate
+endmodule
+module commutatore_4vie_nbit(z, alpha, x1, x2, x3, x4);
+    parameter N = 32;
+
+
+    output [N-1:0]z;
+    input [0:1]alpha;
+    input [N-1:0]x1;
+    input [N-1:0]x2;
+    input [N-1:0]x3;
+    input [N-1:0]x4;
+
+
+    wire [N-1:0]z1;
+    wire [N-1:0]z2;
+
+
+    commutatore_nbit_generative #(N) k12( z1, alpha[1], x1, x2);
+    commutatore_nbit_generative #(N) k34( z2, alpha[1], x3, x4);
+    commutatore_nbit_generative #(N) k( z, alpha[0], z1, z2);
+
+
+endmodule
+Esempio
+
+
+/* Nella definizione del modulo seguiamo la convenzione, ovvero prima gli output e poi a seguire gli input questo perche' e' cosi fatto anche per le porte predefinite (come ad es la and, or, not .. ) */
+module esempio(output wire f, input wire a, input wire b, input wire c);
+
+
+    /*definiamo i fili che interconnettono le porte all'interno della rete, mentre i fili che interfacciano la rete con il mondo esterno (input e ouput) sono quelli definiti nella lista dei parametri del modulo */
+    wire and_ab;
+    wire not_c;
+    wire and_notc;
+
+
+    /*definiamo la struttura della rete, utilizzando le porte predefnite e i fili che realizzano le interconnessioni*/
+    and(and_ab, a, b);
+    not(not_c, c);
+    and(and_notc, a, not_c);
+    or(f, and_ab, and_notc);
+    
+endmodule
+
+
+/*oppure con un’espressione booleana
+module esempio(output wire f, input wire a, input wire b, input wire c);
+/*Anziche’ fornire la rete di porte logiche che implementa la rete logica, possiamo definire direttamente l’espressione booleana calcolata dalla rete logica stessa, in questo caso, definiamo un assegnamento continuo che determina il valore del parametro in output in termini di un’espressione della logica booleana che ha come parametri i parametri in input del modulo*/
+    assign f = (a & b) | (a & ~(c));
+endmodule
+*/
+
+
+/*oppure con tabella di verita’
+primitive esempio(output f, input a, input b, input c);
+    table
+            0 0 0 : 0;
+            0 0 1 : 0;
+            0 1 0 : 0;
+            0 1 1 : 0;
+            1 0 0 : 1;
+            1 0 1 : 0;
+            1 1 0 : 1;
+            1 1 1 : 1;
+    endtable    
+endprimitive
+
+
+*/
+
+
+
+
+/*Definiamo programma di test per il modulo precedente*/
+
+
+/*all'esterno della definizione del modulo, definiamo la scala dei tempi da utilizzare (nanosecondi divisi in picosecondi), che e' una definizione di comodo per stabilire il range temporale*/
+`timescale 1ns/1ps    
+
+
+/*il nome di tale modulo e' senza parametri perche' e' appunto di test, come se fosse un main*/
+module ProvaEsempio();
+
+
+    /*registri che conterranno i valori di input alla rete da testare, non essendo specificata la dimensione li considereremo da 1 bit*/
+    reg a;
+    reg b;
+    reg c;
+
+
+    /*filo per l'output della rete da testare, potrebbe anche essere reg*/
+    wire f;
+
+
+    /* Istanziazione della rete: non e' una chiamata di procedura!
+    I parametri attuali vengono collegati come specificato mediante i parametri formali nella definizione del modulo esempio().
+    Prima delle parentesi tonde dei parametri troviamo il nome del modulo istanziato: serve per distinguere tra istanziazioni diverse
+    L'istanziazione del modulo avviene quindi nominando il nome del modulo seguito, dopo uno spazio, dal nome dell'istanza e dai parametri formali.
+    Il nome del modulo potra' essere usato per accedere alle variabili interne, oppure nella visualizzazione delle tracce di output per distinguee tracce con lo stesso nome.*/
+    esempio es(f, a, b, c);
+
+
+    /*assegnamento da eseguire all'inizio della simulazione*/
+    initial begin
+
+
+            /*Definiamo dove memorizzare i risultati della simulazione*/    
+
+
+            /*file di output per la visualizzazione del comportamento, conterra' la traccia dei cambiamenti delle variabili del programma nel tempo*/
+            $dumpfile("Prova.vcd");
+            
+            /*esegui il dump dei cambiamenti di tutte le variabili in gioco, ovvero i valori iniziali degli ingressi e la variazione di tali ingressi nel tempo, se invece non le avessi volute tutte quante avrei dovuto specificarle*/
+            $dumpvars;
+
+
+            /*assegnamento iniziale dei registri di input alla rete*/
+            a = 0;
+            b = 0;
+            c = 0;
+
+
+            /*simulazione dei cambi della configurazione in ingresso
+            La gratella seguita da un numero indica il ritardo, nell'unita' di tempo definita dalla timescale, dopo il quale lo statement successivo verra' eseguito*/
+
+
+            #10 a = 1; //dopo 10 nanosecondi cambia il valore di a
+            #10 a = 0; //dopo 10 nanosecondi cambia sia a che b
+                    b = 1;            
+            #10 a = 1; //dopo 10 nanosecondi cambia sia a che c
+                    c = 1;
+            #10 b = 0; //dopo 10 nanosecondi cambia il valore di b
+    
+            /*attendi altri 10 nanosecondi e termina la simulazione
+            qui produce il file .vcd contenente il dump dei cambiamenti delle variabili*/
+            #10 $finish;
+
+
+    /*fine del blocco di comando da eseguire all'inizio della simulazione*/    
+    end
+
+
+/*fine del modulo di test*/
+endmodule
+
+
+Selezionatore
+/*Selezionatore da 1 bit espresso utilizzando il modo behavioural.
+Ha un unico ingresso x da 1 bit e un ingresso di controllo alpha da 1 bit.
+L'ingresso di controllo determina quale delle 2 uscite vale quanto l'ingresso x. Si usano 2 statement di assegnamento continuo, uno per la prima uscita z[0] e l'altro per la seconda uscita z[1].*/
+module selezionatore(output [1:0]z, input alpha, input x);
+    assign z[1] = ((~alpha) & x);
+    assign z[0] = (alpha & x);
+endmodule
+
+
+/*Selezionatore a 2 vie, utilizza 2 variabili per modellare l'uscita del modulo, dimensionandole mediante un parametro del modulo stesso.*/
+module selezionatore(z0, z1, alpha, x);
+    parameter N = 4;
+    output [N-1:0]z0;
+    output [N-1:0]z1;
+    input alpha;
+    input [N-1:0]x;
+
+
+    assign z0 = (alpha==0 ? x : 0);
+    assign z1 = (alpha==1 ? x : 0);
+endmodule
+
+
+module provaSelezionatore();
+    parameter N = 4;
+
+
+    /*registri che conterranno i valori di input alla rete da testare*/
+    reg alpha;
+    reg [N-1:0]x;
+
+
+    wire [N-1:0]z0;
+    wire [N-1:0]z1;
+
+
+    selezionatore #(N) s1(z0, z1, alpha, x);
+
+
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            x = 15;
+            alpha = 0;
+            
+            #10 alpha = 1;
+            #10 alpha = 0;
+    
+            #10 $finish;
+    end
+endmodule
+
+
+Alu
+
+
+module alu(risultato, zero, segno, alpha, ingresso1, ingresso2);
+
+
+    parameter N = 32;    //larghezza della parola
+    
+    `define RITARDO 10
+
+
+    output [N-1:0]risultato;
+    output zero;
+    output segno;
+
+
+    input [1:0]alpha;//affinche' possa permettere le 4 operazioni possibili
+    input [N-1:0]ingresso1;
+    input [N-1:0]ingresso2;
+    
+    /*Si definiscono 3 registri temporanei per i calcoli che conterranno i valori che saranno associati alle uscite*/
+    reg [N-1:0]temp;
+    reg bitz;
+    reg bits;
+
+
+    assign risultato = temp;
+    assign zero = bitz;
+    assign segno = bits;
+
+
+    /*il blocco always qui permette di provvedere ad assegnare il valore corretto ai registri, a seconda dei parametri di ingresso del modulo*/
+    always@(alpha or ingresso1 or ingresso2)
+    begin
+            case(alpha)
+            //usando assegnamento bloccante, in modo da poter lavorare sui risultati
+                    0 : temp = ingresso1 + ingresso2;//somma
+                    1 : temp = ingresso1 - ingresso2;//differenza
+                    2 : temp = ingresso1 >> ingresso2;//shift dx:divisione x2
+                    3 : temp = ingresso1 << ingresso2;//shift sx:moltiplicazione x2
+            endcase
+            
+            //uso ora l'assegnamento non bloccante, DOPO l'aggiornamento di temp
+            bitz <= (temp==0 ? 1 : 0);
+            bits <= (temp[N-1]);
+    end    
+endmodule
+
+
+Registri
+/*Un registro deve essere inizializzato a 0 e scritto soltanto in corrispondenza del fronte di discesa del segnale di clock, se clk e' quindi alto, ovvero 0, e se contemporaneamente il beta vale 1. L'uscita e' sempre uguale al contenuto del registro.*/
+module registro(r, clk, beta, i0);
+    
+    /*Il modulo e' parametrico rispetto al numero di bit utilizzati per il registro (N), di conseguenza puo' essere modificato in fase di istanziazione del modulo*/
+    parameter N = 32;
+
+
+    output [N-1:0]r;
+    input clk; //clk = il segnale del clock
+    input beta; //beta = il controllo di scrittura
+    input [N-1:0]i0; //i0 = il segnale in ingresso
+
+
+    reg [N-1:0]registroN; //registro da N bit
+
+
+    /*In assenza di tale inizializzazione, la lettura del registro produrrebbe valori x, ovvero indefiniti */
+    initial begin
+            registroN = 0;
+    end
+
+
+    /*Lo statement always seguente e' quello che effettivamente implementa la scritura del registro, sul fronte in discesa del segnale di clock, ovvero quando il segnale di clock scende da 1 a 0. Ma questa e' puramente una scelta arbitraria, avremmo potuto di fatti utilizzare il fronte di salita, indicando un posedge invece di un negedge.*/
+    always@(negedge clk)
+            begin    
+                    if(beta==1)
+                            registroN = i0;
+            end
+
+
+    assign r = registroN;
+endmodule
+
+
+/* Registro da N bit
+beta = controllo di scrittura
+i0 = segnale in ingresso
+clk = clock 
+
+
+semantica standard: scrive i0 se clk alto (ovvero clk e' 0) e beta (ovvero beta e' 1)
+l'uscita e' sempre uguale al contenuto del registro */
+
+
+module registro(r, clk, beta, i0);
+
+
+        parameter N = 32;
+
+
+        output [N-1:0]r;
+        input clk;
+        input beta;
+        input [N-1:0]i0;
+
+
+        reg [N-1:0]registroN;
+        
+        initial
+                begin
+                        registroN = 0;
+                end
+
+
+        always@(negedge clk)        //passaggio da 1 a 0 di clk
+                begin        
+                        if(beta==1)
+                                registroN = i0;
+                end
+
+
+        assign r = registroN;
+endmodule
+
+
+
+
+
+
+Memorie
+/*Nella memoria considerata si possono definire mediante opportuni parametri
+N = primo parametro, il numero di bit dell'indirizzo
+la capacita' = 2^N, numero di celle della memoria
+lunghezza della parola = secondo parametro, M
+clock = ingresso del segnale di clock
+beta = ingresso del segnale di abilitazione/disabilitazione scrittura
+    se beta=0 --> in ogni momento l'uscita della memoria e' pari al contenuto della sua cella indirizzata dall'ingresso indirizzo come risultante/scritto all'ultimo battimento di clock
+    se beta=1 --> il contenuto della cella di indirizzo addr viene sostituito con la parola presente sull'ingresso della memoria */
+
+
+/*I parametri di default in ingresso: N = 6 e M = 32, definiscono una memoria di 64 posizioni, [N = 6 = numero delle locazioni di memoria --> 2^6]*/
+module memoria #(parameter N = 6, M = 32)(
+    output [M-1:0]data_out,
+    input clock,
+    input beta,
+    input [N-1:0]address,
+    input [N-1:0]data_in );
+
+
+    /*Definiamo la memoria come vettore da 2^N posizioni di parole da M bit*/
+    reg [M-1:0]mem_bank[2**N-1:0];
+    reg [N:0]i;
+
+
+    /*Con il seguente modulo e' prevista l'inizializzazione del modulo di memoria, in modo che tutte le locazioni contengano inizialmente il valore 0.*/
+    initial begin
+            for(i=0; i<2**N; i=i+1)
+                    mem_bank[i] = 0;
+    end
+    
+    /*Con il seguente blocco, il valore presente sull'ingresso viene scritto nella locazione individuata dall'indirizzo in ingresso sul fronte di salita del segnale di clock e beta=1*/
+    always@(posedge clock)
+            begin
+                    if(beta)
+                            mem_bank[address] = data_in;
+            end
+
+
+    /*Il seguente assegnamento continuo provvede a copiare in uscita il contenuto della cella di memoria individuata dallo stesso indirizzo in ingresso.*/
+    assign data_out = mem_bank[address];
+endmodule
+
+
+
+
+Memorie Interallacciate
+/*Memoria modulare interallacciata di 2K parole costruita utilizzando 2 moduli da 1K parola l'uno.
+Il selettore S provvede a passare il beta che abilita la scrittura al primo o al secondo modulo, a seconda del bit meno significativo dell'indirizzo passato alla memoria modulare. Questo bit serve anche da segnale di controllo (alphaK) per il commutatore K*/
+
+
+module memoria #(parameter N = 6, M = 32)(
+        output [M-1:0]data_out,
+        input clock,
+        input beta,
+        input [N-1:0]address,
+        input [M-1:0]data_in );
+        /*Definiamo la memoria come vettore da 2^N posizioni di parole da M bit*/
+        reg [M-1:0]mem_bank[2**N-1:0];
+        reg [N:0]i;
+        /*Con il seguente modulo e' prevista l'inizializzazione del modulo di memoria, in modo che tutte le locazioni contengano inizialmente il valore 0.*/
+        initial begin
+            for(i=0; i<2**N; i=i+1)
+                mem_bank[i] = 0;
+        end
+    
+        /*Con il seguente blocco, il valore presente sull'ingresso viene scritto nella locazione individuata dall'indirizzo in ingresso sul fronte di salita del segnale di clock e beta=1*/
+        always@(posedge clock)
+            begin
+                if(beta)
+                    mem_bank[address] = data_in;
+            end
+        /*Il seguente assegnamento continuo provvede a copiare in uscita il contenuto della cella di memoria individuata dallo stesso indirizzo in ingresso.*/
+        assign data_out = mem_bank[address];
+endmodule
+
+
+module commutatore_nbit(z, x, y, alpha);
+        /* i moduli possono avere parametri definiti per default
+        che possono essere variati in fase di istanziazione.
+        Devono essere dichiarati subito dopo la testa del modulo */
+        parameter N = 32;
+        output [N-1:0]z;         // z = output da N bit
+        input [N-1:0]x;            // x, y = input da N bit
+        input [N-1:0]y;
+        input alpha;            // alpha = input di controllo da 1 bit
+        assign z = ( (~alpha) ? x : y);
+/* Il commutatore a n vie è stato qui definito con una espressione dell’algebra booleana. */
+endmodule
+
+
+module memoriaModuliInterallacciata(data_out, clock, write_enable, address, data_in);
+    parameter N = 11;
+    parameter M = 32;
+
+
+    output [M-1:0]data_out;
+    input clock;
+    input write_enable;
+    input [N-1:0]address;
+    input [M-1:0]data_in;
+
+
+    /*I seguenti fili servono
+            per portare i segnali necessari al funzionamento delle porte utilizzate (not, and, ..)
+            per sostituire il selettore per la gestione del beta di abilitazione alla scrittura
+            per collegare le uscite dei 2 moduli di memoria agli ingressi del commutatore dhe genera il valore letto in uscita*/
+    wire moduloSelettore0;
+    wire wr0; /*Segnale di abilitazione alla scrittura nel primo modulo*/
+    wire wr1; /*Segnale di abilitazione alla scrittura nel secondo modulo*/
+    wire [M-1:0]data_out0;
+    wire [M-1:0]data_out1;
+
+
+    not(moduloSelettore0, address[0]);
+    and(wr0, moduloSelettore0, write_enable);
+    
+    and(wr1, address[0], write_enable);
+
+
+    /*Definizione dei due moduli*/
+    memoria            #(10, M) modulo0(data_out0, clock, wr0, address[N-1:1], data_in);
+    memoria            #(10, M) modulo1(data_out1, clock, wr1, address[N-1:1], data_in);
+    
+    /*Commutatore che comanda la lettura*/
+    commutatore_nbit #(M) k1(data_out, data_out0, data_out1, address[0]);    
+
+
+endmodule
+
+
+module test();
+
+
+    //ingressi            
+    reg [10:0]addr;
+    reg [31:0]dato_in;
+    reg WrEn;
+
+
+    //uscite
+    wire [31:0]dato_out;
+    
+    //clock
+    reg clock;
+
+
+    //layout della rete sequenziale
+    memoriaModuliInterallacciata m(dato_out, clock, WrEn, addr, dato_in);
+
+
+    //generazione del clock
+    always begin
+            if(clock)
+                    #1 clock = ~clock;
+            else
+                    #9 clock = ~clock;
+    end            
+endmodule
