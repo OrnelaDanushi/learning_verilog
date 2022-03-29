@@ -1,0 +1,80 @@
+﻿/*Indicatore di Interfaccia di Uscita ACK, il sincronizzatore.
+E' un contatore modulo 2, con un solo ingresso beta:
+Ogni volta che l'ingresso vale 1 in corrispondenza del ciclo di clock, effettuano un incremento mod 2, ovvero passano da 0 a 1 o da 1 a 0*/
+
+
+module ack(output reg ackout, input clock, input beta);
+    initial begin
+            ackout = 0;
+    end
+
+
+    always@(negedge clock)
+            begin
+                    if(beta==1)
+                            ackout = ~ackout;
+            end
+endmodule
+
+
+/*Per la realizzazione del programma di test*/
+//`timescale 1ns/1ps
+module testRdy();
+
+
+    //ingressi
+    reg beta;
+
+
+    //clock
+    reg clock;
+    
+    //uscite
+    wire ackout;
+
+
+    //layout della rete sequenziale
+    ack ack(ackout, clock, beta);
+
+
+    //generazione del clock
+    always begin
+            if(clock)
+                    #1 clock = ~clock;
+            else
+                    #4 clock = ~clock;
+    end
+
+
+    //modulo per il test
+    initial begin
+            $dumpfile("Prova.vcd");
+            $dumpvars;
+
+
+            clock = 0;
+
+
+            beta = 0;
+
+
+            #7 beta = 1;
+
+
+            #5 beta = 0;
+
+
+            #6 beta = 1;
+
+
+            #4 beta = 0;
+
+
+            #5 beta = 1;
+
+
+            #4 beta = 0;
+    
+            #30 $finish;    
+    end
+endmodule
